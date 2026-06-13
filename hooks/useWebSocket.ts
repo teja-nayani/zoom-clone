@@ -36,6 +36,7 @@ export function useWebSocket(
   meetingCode: string,
   clientId: string,
   displayName: string,
+  isHost = false,
 ): UseWebSocketReturn {
   const [status, setStatus] = useState<WsStatus>('connecting')
   const [lastMessage, setLastMessage] = useState<WsMessage | null>(null)
@@ -58,7 +59,7 @@ export function useWebSocket(
 
     let disposed = false
     pendingMessagesRef.current = []
-    const url = `${WS_BASE}/ws/${meetingCode}/${clientId}?display_name=${encodeURIComponent(displayName)}`
+    const url = `${WS_BASE}/ws/${meetingCode}/${clientId}?display_name=${encodeURIComponent(displayName)}&is_host=${isHost}`
     const ws = new WebSocket(url)
     wsRef.current = ws
 
@@ -101,7 +102,7 @@ export function useWebSocket(
       ws.close(1000, 'Component unmounted')
       wsRef.current = null
     }
-  }, [meetingCode, clientId, displayName])
+  }, [meetingCode, clientId, displayName, isHost])
 
   const sendMessage = useCallback((msg: WsMessage) => {
     const ws = wsRef.current

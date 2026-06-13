@@ -25,6 +25,7 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
     Expected inbound message shape: { "type": "<event>", "payload": { ... } }
     """
     display_name = websocket.query_params.get("display_name", "Anonymous")
+    is_host = websocket.query_params.get("is_host", "false").lower() == "true"
 
     # ── Step 1: snapshot BEFORE the new joiner is registered ─────────────────
     # get_participants() at this point returns only participants already in the room.
@@ -34,7 +35,7 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
     ]
 
     # ── Step 2: register the new joiner ──────────────────────────────────────
-    await manager.connect(websocket, meeting_code, client_id, display_name)
+    await manager.connect(websocket, meeting_code, client_id, display_name, is_host=is_host)
 
     # ── Step 3: notify existing participants (they cache the name, no offer) ──
     await manager.broadcast_to_room(
@@ -118,6 +119,8 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
                 )
 
             elif event_type == "mute-participant":
+                if not manager.is_host(meeting_code, client_id):
+                    continue
                 target_id = payload.get("target")
                 if target_id:
                     room = manager.rooms.get(meeting_code, {})
@@ -137,6 +140,8 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
                     )
 
             elif event_type == "remove-participant":
+                if not manager.is_host(meeting_code, client_id):
+                    continue
                 target_id = payload.get("target")
                 if target_id:
                     await manager.send_personal_message(

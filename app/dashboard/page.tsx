@@ -837,7 +837,7 @@ export default function DashboardPage() {
     setNewMeetingError(null)
     try {
       const meeting = await apiFetch<MeetingOut>('/meetings/instant', { method: 'POST' })
-      router.push(`/meeting/${meeting.meeting_code}?video=${videoOn}&audio=true`)
+      router.push(`/meeting/${meeting.meeting_code}?video=${videoOn}&audio=true&host=true`)
     } catch (err) {
       setNewMeetingError((err as Error).message)
       setNewMeetingLoading(false)
@@ -1039,12 +1039,17 @@ export default function DashboardPage() {
                             <div key={m.id} className="px-4 py-3">
                               <p className="truncate text-sm font-medium text-foreground">{m.title}</p>
                               <p className="mt-0.5 text-xs text-muted-foreground">{formatDateTime(m.scheduled_start_time)}</p>
-                              <button
-                                onClick={() => router.push(`/meeting/${m.meeting_code}`)}
-                                className="mt-2 w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                Start
-                              </button>
+                              <div className="mt-2 flex items-center gap-2">
+                                <button
+                                  onClick={() => router.push(`/meeting/${m.meeting_code}?host=true`)}
+                                  className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  Start
+                                </button>
+                                {m.invite_link && (
+                                  <CopyButton text={m.invite_link} label={`Copy invite link for ${m.title}`} />
+                                )}
+                              </div>
                             </div>
                           ))}
                       </div>
@@ -1130,7 +1135,7 @@ export default function DashboardPage() {
                         meta={`${formatDateTime(m.scheduled_start_time)}${durationLabel(m.duration_minutes)}`}
                         meetingCode={m.meeting_code}
                         inviteLink={m.invite_link}
-                        primaryAction={{ label: 'Start', onClick: () => router.push(`/meeting/${m.meeting_code}`) }}
+                        primaryAction={{ label: 'Start', onClick: () => router.push(`/meeting/${m.meeting_code}?host=true`) }}
                       />
                     ))}
                   </div>

@@ -1,26 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import engine, SessionLocal
+from database import engine
 import models
 from routers import meetings, participants
+from seed import seed_all
 from websocket.signaling import router as ws_router
 
 models.Base.metadata.create_all(bind=engine)
-
-
-def _seed_default_user():
-    """Ensure the demo user (id=1) exists so all endpoints work out of the box."""
-    db = SessionLocal()
-    try:
-        if not db.query(models.User).filter(models.User.id == 1).first():
-            db.add(models.User(id=1, name="Demo User", email="demo@example.com"))
-            db.commit()
-    finally:
-        db.close()
-
-
-_seed_default_user()
+seed_all()
 
 app = FastAPI(title="Zoom Clone API", version="1.0.0")
 

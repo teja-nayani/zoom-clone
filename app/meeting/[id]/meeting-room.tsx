@@ -4,6 +4,8 @@ import { useMediaDevices } from '@/hooks/useMediaDevices'
 import { useWebRTC } from '@/hooks/useWebRTC'
 import { useWebSocket, type WsStatus } from '@/hooks/useWebSocket'
 import {
+  Check,
+  Copy,
   MessageSquare,
   Mic,
   MicOff,
@@ -50,6 +52,7 @@ interface Participant {
   isVideoOn: boolean
   isActiveSpeaker: boolean
   isSelf: boolean
+  isHost: boolean
   stream: MediaStream | null
 }
 
@@ -324,11 +327,32 @@ const WS_STATUS_CFG: Record<WsStatus, { dot: string; label: string }> = {
 
 function MeetingInfoBar({ meetingId, wsStatus }: { meetingId: string; wsStatus: WsStatus }) {
   const { dot, label } = WS_STATUS_CFG[wsStatus]
+  const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleCopyLink() {
+    const link = `${window.location.origin}/meeting/${meetingId}`
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true)
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   return (
     <div className="flex items-center justify-between px-4 pt-3 sm:px-6">
       <div className="flex items-center gap-3">
         <span className="text-xs text-meeting-foreground/50">Meeting ID:</span>
         <span className="meeting-id text-xs font-medium text-meeting-foreground/80">{meetingId}</span>
+        <button
+          type="button"
+          onClick={handleCopyLink}
+          aria-label="Copy meeting link"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-meeting-foreground/60 transition-colors hover:bg-white/10 hover:text-meeting-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy Link'}
+        </button>
       </div>
       <div className="flex items-center gap-2" title={`WebSocket: ${label}`}>
         {wsStatus === 'error' && <WifiOff className="h-3.5 w-3.5 text-danger" aria-hidden="true" />}
@@ -403,12 +427,13 @@ function PanelHeader({ title, onClose }: { title: string; onClose: () => void })
 interface ParticipantsPanelProps {
   participants: Participant[]
   myClientId: string
+  isLocalHost: boolean
   onClose: () => void
   onMuteParticipant: (clientId: string) => void
   onRemoveParticipant: (clientId: string) => void
 }
 
-function ParticipantsPanel({ participants, myClientId, onClose, onMuteParticipant, onRemoveParticipant }: ParticipantsPanelProps) {
+function ParticipantsPanel({ participants, myClientId, isLocalHost, onClose, onMuteParticipant, onRemoveParticipant }: ParticipantsPanelProps) {
   return (
     <aside role="region" aria-label="Participants" className={PANEL_CLASSES}>
       <PanelHeader
@@ -433,8 +458,7 @@ function ParticipantsPanel({ participants, myClientId, onClose, onMuteParticipan
                 <span className="truncate text-sm font-medium text-meeting-foreground">
                   {p.displayName}
                 </span>
-                {/* MVP: local user is always the host */}
-                {p.isSelf && (
+                {p.isHost && (
                   <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none bg-primary/25 text-primary">
                     Host
                   </span>
@@ -451,8 +475,8 @@ function ParticipantsPanel({ participants, myClientId, onClose, onMuteParticipan
               )}
             </div>
 
-            {/* Host controls — only shown for remote participants */}
-            {p.id !== myClientId && (
+            {/* Host controls — only the meeting host can mute/remove others */}
+            {isLocalHost && p.id !== myClientId && (
               <div className="flex flex-shrink-0 items-center gap-1">
                 <button
                   aria-label={`Mute ${p.displayName}`}
@@ -592,6 +616,27 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
   const searchParams = useSearchParams()
   const initialAudio = searchParams?.get('audio') !== 'false'
   const initialVideo = searchParams?.get('video') !== 'false'
+  const requestedHost = searchParams?.get('host') === 'true'
+
+  // Track which client IDs are the meeting host (synced from WS participant snapshots)
+  const [hostClientIds, setHostClientIds] = useState<Set<string>>(() =>
+    requestedHost ? new Set([CLIENT_ID]) : new Set(),
+  )
+
+  function syncHostFlags(participants: Array<{ client_id?: string; is_host?: boolean }>) {
+    setHostClientIds((prev) => {
+      const next = new Set(prev)
+      for (const p of participants) {
+        const id = p.client_id
+        if (!id) continue
+        if (p.is_host) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  }
+
+  const isLocalHost = hostClientIds.has(CLIENT_ID)
 
   // ── Media devices ─────────────────────────────────────────────────────────
   const {
@@ -613,6 +658,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
     meetingId,
     CLIENT_ID,
     'Demo User',
+    requestedHost,
   )
 
   // ── WebRTC peer connections ───────────────────────────────────────────────
@@ -636,6 +682,12 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
   useEffect(() => {
     return subscribeToMessages((msg) => {
       switch (msg.type) {
+        case 'participant-joined':
+        case 'existing-participants': {
+          const list = msg.payload.participants as Array<{ client_id?: string; is_host?: boolean }> | undefined
+          if (list) syncHostFlags(list)
+          break
+        }
         case 'participant-audio-updated': {
           const id = msg.payload.client_id as string
           const isMutedRemote = msg.payload.is_muted as boolean
@@ -659,13 +711,14 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
           break
         }
         case 'participant-left': {
-          // Clean up meta for departed participants
           const leftId = msg.payload.client_id as string
           setRemoteMeta((prev) => {
             const next = new Map(prev)
             next.delete(leftId)
             return next
           })
+          const list = msg.payload.participants as Array<{ client_id?: string; is_host?: boolean }> | undefined
+          if (list) syncHostFlags(list)
           break
         }
         case 'chat-message': {
@@ -729,6 +782,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
     isVideoOn,
     isActiveSpeaker: remoteParticipants.length === 0,
     isSelf: true,
+    isHost: isLocalHost,
     stream: localStream,
   }
 
@@ -741,6 +795,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
       isVideoOn: remoteMeta.get(rp.clientId)?.isVideoOn ?? true,
       isActiveSpeaker: false,
       isSelf: false,
+      isHost: hostClientIds.has(rp.clientId),
       stream: rp.stream,
     })),
   ]
@@ -828,6 +883,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
           <ParticipantsPanel
             participants={participants}
             myClientId={CLIENT_ID}
+            isLocalHost={isLocalHost}
             onClose={() => setOpenPanel(null)}
             onMuteParticipant={handleMuteParticipant}
             onRemoveParticipant={handleRemoveParticipant}
