@@ -297,15 +297,15 @@ function NewMeetingTile({
         disabled={loading}
         aria-haspopup="true"
         aria-expanded={open}
-        className="flex w-[78px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-[72px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-2.5 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span
-          className="flex h-10 w-10 items-center justify-center rounded-full text-white"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-white"
           style={{ backgroundColor: '#ff742e' }}
         >
           {loading
-            ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-            : <Video className="h-5 w-5" aria-hidden="true" />}
+            ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            : <Video className="h-4 w-4" aria-hidden="true" />}
         </span>
         <span className="flex items-center gap-0.5">
           <span className="text-center text-[11px] font-medium leading-tight">
@@ -863,20 +863,14 @@ export default function DashboardPage() {
   const secondaryActions = [
     {
       label: 'Join' as const,
-      icon: <Plus className="h-5 w-5" aria-hidden="true" />,
+      icon: <Plus className="h-4 w-4" aria-hidden="true" />,
       onClick: () => setShowJoin(true),
       iconBg: '#0b5cff',
     },
     {
       label: 'Schedule' as const,
-      icon: <Calendar className="h-5 w-5" aria-hidden="true" />,
+      icon: <Calendar className="h-4 w-4" aria-hidden="true" />,
       onClick: openSchedule,
-      iconBg: '#0b5cff',
-    },
-    {
-      label: 'Share Screen' as const,
-      icon: <Monitor className="h-5 w-5" aria-hidden="true" />,
-      onClick: () => {},
       iconBg: '#0b5cff',
     },
   ]
@@ -914,53 +908,54 @@ export default function DashboardPage() {
             <div className="space-y-6 p-6">
 
               {/* Top row: Profile card (left) + Action tiles (right) */}
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
                 {/* Profile card */}
-                <div className="flex-1 rounded-xl border border-border bg-card p-5 shadow-card">
+                <div className="flex h-full flex-col justify-center rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-2">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-lg font-semibold text-primary">
+                      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xl font-semibold text-primary">
                         TN
                       </div>
                       <div>
-                        <p className="font-semibold text-foreground">Teja Nayani</p>
-                        <p className="text-sm text-muted-foreground">Plan: Basic</p>
+                        <p className="text-lg font-semibold text-foreground">Teja Nayani</p>
+                        <p className="text-base text-muted-foreground">Plan: Basic</p>
                       </div>
                     </div>
-                    <button className="rounded-lg border border-border px-4 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <button className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       Manage Plan
                     </button>
                   </div>
                 </div>
 
                 {/* Action tiles */}
-                <div className="flex flex-shrink-0 gap-2">
+                <div className="lg:col-span-1">
+                  <div className="flex w-full items-center justify-center gap-9 rounded-xl border border-border bg-card p-6 shadow-card">
+                    {/* New Meeting — split tile: main click + chevron dropdown */}
+                    <NewMeetingTile
+                      loading={newMeetingLoading}
+                      onStart={handleNewMeeting}
+                    />
 
-                  {/* New Meeting — split tile: main click + chevron dropdown */}
-                  <NewMeetingTile
-                    loading={newMeetingLoading}
-                    onStart={handleNewMeeting}
-                  />
-
-                  {/* Secondary tiles */}
-                  {secondaryActions.map((action) => (
-                    <button
-                      key={action.label}
-                      onClick={action.onClick}
-                      className="flex w-[78px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span
-                        style={{ backgroundColor: action.iconBg }}
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-white"
+                    {/* Secondary tiles */}
+                    {secondaryActions.map((action) => (
+                      <button
+                        key={action.label}
+                        onClick={action.onClick}
+                        className="flex w-[72px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-2.5 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {action.icon}
-                      </span>
-                      <span className="text-center text-[11px] font-medium leading-tight">
-                        {action.label}
-                      </span>
-                    </button>
-                  ))}
+                        <span
+                          style={{ backgroundColor: action.iconBg }}
+                          className="flex h-9 w-9 items-center justify-center rounded-full text-white"
+                        >
+                          {action.icon}
+                        </span>
+                        <span className="text-center text-[11px] font-medium leading-tight">
+                          {action.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -972,44 +967,102 @@ export default function DashboardPage() {
                 />
               )}
 
-              {/* Recent activity */}
-              <div>
-                <h2 className="mb-4 text-base font-semibold text-foreground">Recent activity</h2>
+              {/* Bottom half: Recent activity (2/3) + Upcoming Meetings (1/3) */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
-                {loadingRecent ? (
-                  <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-card">
-                    <SkeletonRow /><SkeletonRow />
-                  </div>
-                ) : recent.length > 0 ? (
-                  <div className="divide-y divide-border rounded-xl border border-border bg-card shadow-card">
-                    {recent.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                            <Video className="h-4 w-4 text-primary" aria-hidden="true" />
+                {/* Recent activity — takes 2 columns, flush with Profile card above */}
+                <div className="lg:col-span-2">
+                  <div className="rounded-xl border border-border bg-card shadow-card">
+                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                      <span className="text-sm font-medium text-foreground">Recent Activity</span>
+                    </div>
+
+                    {loadingRecent ? (
+                      <div className="space-y-2 p-3">
+                        <SkeletonRow /><SkeletonRow />
+                      </div>
+                    ) : recent.length > 0 ? (
+                      <div className="divide-y divide-border">
+                        {recent.map((r) => (
+                          <div key={r.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                                <Video className="h-4 w-4 text-primary" aria-hidden="true" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-foreground">{r.meeting.title}</p>
+                                <p className="text-xs text-muted-foreground">Joined {formatDateTime(r.joined_at)}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => router.push(`/meeting/${r.meeting.meeting_code}`)}
+                              className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              Start Again
+                            </button>
                           </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-foreground">{r.meeting.title}</p>
-                            <p className="text-xs text-muted-foreground">Joined {formatDateTime(r.joined_at)}</p>
-                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+                          <Clock className="h-8 w-8 text-muted-foreground/30" aria-hidden="true" />
                         </div>
+                        <p className="text-sm text-muted-foreground">No recent activity</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Upcoming Meetings — 1 column */}
+                <div className="lg:col-span-1">
+                  <div className="rounded-xl border border-border bg-card shadow-card">
+                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                      <span className="text-sm font-medium text-foreground">Upcoming Meetings</span>
+                      <button
+                        onClick={() => setActiveSidebarView('meetings')}
+                        className="text-xs font-medium text-primary transition-colors hover:underline focus-visible:outline-none"
+                      >
+                        Visit Meetings
+                      </button>
+                    </div>
+
+                    {loadingUpcoming ? (
+                      <div className="space-y-2 p-3">
+                        <SkeletonRow /><SkeletonRow />
+                      </div>
+                    ) : upcoming.filter((m) => m.scheduled_start_time && new Date(m.scheduled_start_time) > new Date()).length > 0 ? (
+                      <div className="divide-y divide-border">
+                        {upcoming
+                          .filter((m) => m.scheduled_start_time && new Date(m.scheduled_start_time) > new Date())
+                          .map((m) => (
+                            <div key={m.id} className="px-4 py-3">
+                              <p className="truncate text-sm font-medium text-foreground">{m.title}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">{formatDateTime(m.scheduled_start_time)}</p>
+                              <button
+                                onClick={() => router.push(`/meeting/${m.meeting_code}`)}
+                                className="mt-2 w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                Start
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+                        <p className="text-sm text-muted-foreground">No Upcoming Meetings</p>
                         <button
-                          onClick={() => router.push(`/meeting/${r.meeting.meeting_code}`)}
-                          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={openSchedule}
+                          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          Start Again
+                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                          Schedule a Meeting
                         </button>
                       </div>
-                    ))}
+                    )}
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-16 text-center shadow-card">
-                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-                      <Clock className="h-8 w-8 text-muted-foreground/30" aria-hidden="true" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">No recent activity</p>
-                  </div>
-                )}
+                </div>
+
               </div>
             </div>
           )}

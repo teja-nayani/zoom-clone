@@ -704,6 +704,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
     }
   }, [isRemovedFromMeeting])
 
+
   useEffect(() => {
     if (wsStatus !== 'open') return
     sendMessage({ type: 'toggle-audio', payload: { is_muted: isMuted } })
@@ -743,6 +744,35 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
       stream: rp.stream,
     })),
   ]
+
+  // ── Auto-exit for 1-on-1 calls ───────────────────────────────────────────
+  // Once a second participant has joined and then leaves, redirect the last
+  // remaining person back to the dashboard. A 3 s debounce prevents the effect
+  // from firing on a page refresh, where the participant list briefly drops to 1
+  // before the peer reconnects.
+  const hasHadPeers = useRef(false)
+  const autoExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (participants.length > 1) {
+      hasHadPeers.current = true
+      // Cancel any pending exit timer — peers are still here
+      if (autoExitTimerRef.current) {
+        clearTimeout(autoExitTimerRef.current)
+        autoExitTimerRef.current = null
+      }
+    } else if (participants.length === 1 && hasHadPeers.current) {
+      autoExitTimerRef.current = setTimeout(() => {
+        sendMessage({ type: 'leave-room', payload: {} })
+        alert('The other participant has left. Ending the meeting.')
+        window.location.href = '/dashboard'
+      }, 3000)
+    }
+    return () => {
+      if (autoExitTimerRef.current) {
+        clearTimeout(autoExitTimerRef.current)
+      }
+    }
+  }, [participants.length, sendMessage])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
