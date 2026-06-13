@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 // ---------------------------------------------------------------------------
 // Stable client ID — module-level so it survives re-renders
@@ -587,6 +588,11 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
   const openPanelRef = useRef(openPanel)
   useEffect(() => { openPanelRef.current = openPanel }, [openPanel])
 
+  // ── Read pre-join privacy params from URL ─────────────────────────────────
+  const searchParams = useSearchParams()
+  const initialAudio = searchParams?.get('audio') !== 'false'
+  const initialVideo = searchParams?.get('video') !== 'false'
+
   // ── Media devices ─────────────────────────────────────────────────────────
   const {
     localStream,
@@ -600,7 +606,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
     toggleVideo,
     startScreenShare,
     stopScreenShare,
-  } = useMediaDevices()
+  } = useMediaDevices(initialAudio, initialVideo)
 
   // ── WebSocket signaling channel ───────────────────────────────────────────
   const { status: wsStatus, sendMessage, subscribeToMessages } = useWebSocket(

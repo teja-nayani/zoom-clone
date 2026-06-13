@@ -29,10 +29,13 @@ export interface MediaDevicesState {
   stopScreenShare: () => void
 }
 
-export function useMediaDevices(): MediaDevicesState {
+export function useMediaDevices(
+  initialAudio = true,
+  initialVideo = true,
+): MediaDevicesState {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
-  const [isMuted, setIsMuted] = useState(false)
-  const [isVideoOn, setIsVideoOn] = useState(true)
+  const [isMuted, setIsMuted] = useState(!initialAudio)
+  const [isVideoOn, setIsVideoOn] = useState(initialVideo)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [activeVideoTrack, setActiveVideoTrack] = useState<MediaStreamTrack | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -60,6 +63,10 @@ export function useMediaDevices(): MediaDevicesState {
           stream.getTracks().forEach((t) => t.stop())
           return
         }
+
+        // Apply pre-join privacy constraints immediately
+        stream.getAudioTracks().forEach((t) => { t.enabled = initialAudio })
+        stream.getVideoTracks().forEach((t) => { t.enabled = initialVideo })
 
         const videoTrack = stream.getVideoTracks()[0] ?? null
         cameraTrackRef.current = videoTrack

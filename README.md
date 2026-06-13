@@ -80,8 +80,35 @@ zoom-clone/
 
 - **Node.js** ≥ 18 and **npm** ≥ 9
 - **Python** ≥ 3.11
+- **Docker** and **Docker Compose** (for the one-command setup below)
 
 ---
+
+## Run with Docker (Recommended)
+
+The fastest way to run the full stack locally — no Python or Node setup required.
+
+```bash
+git clone <your-repo-url>
+cd zoom-clone
+docker-compose up --build
+```
+
+Once the containers are running:
+
+| Service | URL |
+|---|---|
+| **Frontend (Dashboard)** | http://localhost:3000 |
+| **Backend API** | http://localhost:8000 |
+| **Interactive API Docs** | http://localhost:8000/docs |
+
+Press `Ctrl+C` to stop the containers.
+
+> The frontend is built with `NEXT_PUBLIC_BACKEND_URL=http://localhost:8000` so browser requests and WebSocket connections route to the mapped backend port on your host machine.
+
+---
+
+### Manual setup (without Docker)
 
 ### 1 — Clone the repository
 

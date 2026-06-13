@@ -1,0 +1,9 @@
+.git
+.next
+node_modules
+backend
+docs
+*.md
+.env*
+.cursor
+.cursorrules

@@ -4,17 +4,21 @@ import Image from 'next/image'
 import {
   Calendar,
   Check,
+  ChevronDown,
   Clock,
   Copy,
   HelpCircle,
   Loader2,
   Menu,
+  Mic,
+  MicOff,
   Monitor,
   MoreHorizontal,
   Plus,
   Settings,
   User,
   Video,
+  VideoOff,
   X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -51,7 +55,7 @@ interface RecentMeetingOut {
 // API helpers
 // ---------------------------------------------------------------------------
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -104,12 +108,27 @@ function Navbar({
 }: {
   onSchedule: () => void
   onJoin: () => void
-  onHost: () => void
+  onHost: (videoOn: boolean) => void
   activeView: SidebarView
   onNavigate: (view: SidebarView) => void
   isMobileMenuOpen: boolean
   onToggleMobileMenu: () => void
 }) {
+  const [hostDropdownOpen, setHostDropdownOpen] = useState(false)
+  const hostRef = useRef<HTMLDivElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!hostDropdownOpen) return
+    function handleOutside(e: MouseEvent) {
+      if (hostRef.current && !hostRef.current.contains(e.target as Node)) {
+        setHostDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [hostDropdownOpen])
+
   const mobileNavItems: { label: string; view: SidebarView }[] = [
     { label: 'Home', view: 'home' },
     { label: 'Meetings', view: 'meetings' },
@@ -139,21 +158,60 @@ function Navbar({
         </div>
 
         <div className="flex items-center gap-6">
-          {/* Quick-action text links — match Zoom portal header */}
+          {/* Quick-action text links */}
           <nav className="hidden items-center gap-6 sm:flex">
-            {[
-              { label: 'Schedule', onClick: onSchedule },
-              { label: 'Join',     onClick: onJoin     },
-              { label: 'Host',     onClick: onHost     },
-            ].map(({ label, onClick }) => (
+            {/* Schedule */}
+            <button
+              onClick={onSchedule}
+              className="text-[16px] font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Schedule
+            </button>
+
+            {/* Join */}
+            <button
+              onClick={onJoin}
+              className="text-[16px] font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Join
+            </button>
+
+            {/* Host — dropdown trigger */}
+            <div ref={hostRef} className="relative">
               <button
-                key={label}
-                onClick={onClick}
-                className="text-[16px] font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => setHostDropdownOpen((o) => !o)}
+                aria-haspopup="true"
+                aria-expanded={hostDropdownOpen}
+                className="flex items-center gap-1 text-[16px] font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {label}
+                Host
+                <ChevronDown
+                  className={['h-3.5 w-3.5 transition-transform duration-150', hostDropdownOpen ? 'rotate-180' : ''].join(' ')}
+                  aria-hidden="true"
+                />
               </button>
-            ))}
+
+              {hostDropdownOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-xl border border-border bg-background shadow-overlay"
+                >
+                  {[
+                    { label: 'With Video On',  videoOn: true  },
+                    { label: 'With Video Off', videoOn: false },
+                  ].map(({ label, videoOn }) => (
+                    <button
+                      key={label}
+                      role="menuitem"
+                      onClick={() => { onHost(videoOn); setHostDropdownOpen(false) }}
+                      className="flex w-full items-center px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
 
           {/* Divider */}
@@ -201,6 +259,87 @@ function Navbar({
         </nav>
       )}
     </header>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// NewMeetingTile — main icon area starts meeting with video on by default;
+// chevron opens a small dropdown for 'With Video On / Off'
+// ---------------------------------------------------------------------------
+
+function NewMeetingTile({
+  loading,
+  onStart,
+}: {
+  loading: boolean
+  onStart: (videoOn: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Tile — entire surface opens the dropdown */}
+      <button
+        onClick={() => { if (!loading) setOpen((o) => !o) }}
+        disabled={loading}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className="flex w-[78px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-full text-white"
+          style={{ backgroundColor: '#ff742e' }}
+        >
+          {loading
+            ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+            : <Video className="h-5 w-5" aria-hidden="true" />}
+        </span>
+        <span className="flex items-center gap-0.5">
+          <span className="text-center text-[11px] font-medium leading-tight">
+            {loading ? 'Starting…' : 'New Meeting'}
+          </span>
+          <ChevronDown
+            className={['h-3 w-3 text-muted-foreground transition-transform duration-150', open ? 'rotate-180' : ''].join(' ')}
+            aria-hidden="true"
+          />
+        </span>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-xl border border-border bg-background shadow-overlay"
+        >
+          {[
+            { label: 'With Video On',  videoOn: true  },
+            { label: 'With Video Off', videoOn: false },
+          ].map(({ label, videoOn }) => (
+            <button
+              key={label}
+              role="menuitem"
+              onClick={() => { onStart(videoOn); setOpen(false) }}
+              className="flex w-full items-center px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -517,6 +656,8 @@ function JoinModal({ onClose }: JoinModalProps) {
   const router = useRouter()
   const [input, setInput] = useState('')
   const [displayName, setDisplayName] = useState('Demo User')
+  const [muteAudio, setMuteAudio] = useState(false)
+  const [muteVideo, setMuteVideo] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -541,7 +682,7 @@ function JoinModal({ onClose }: JoinModalProps) {
         method: 'POST',
         body: JSON.stringify({ display_name: displayName.trim() }),
       })
-      router.push(`/meeting/${code}`)
+      router.push(`/meeting/${code}?audio=${!muteAudio}&video=${!muteVideo}`)
     } catch (err) {
       setError((err as Error).message)
       setLoading(false)
@@ -570,6 +711,44 @@ function JoinModal({ onClose }: JoinModalProps) {
             <label htmlFor="join-name" className="text-sm font-medium text-foreground">Your Name</label>
             <input id="join-name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your display name" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
+
+          {/* Pre-join privacy toggle cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Audio card */}
+            <button
+              type="button"
+              onClick={() => setMuteAudio(!muteAudio)}
+              className={[
+                'flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                muteAudio
+                  ? 'border-danger/50 bg-danger/5 text-danger'
+                  : 'border-blue-200/60 bg-gradient-to-b from-blue-50 to-slate-50 text-blue-700 hover:from-blue-100 hover:to-slate-100',
+              ].join(' ')}
+            >
+              {muteAudio
+                ? <MicOff className="h-5 w-5" aria-hidden="true" />
+                : <Mic className="h-5 w-5" aria-hidden="true" />}
+              <span className="font-medium">{muteAudio ? 'Audio Off' : 'Audio On'}</span>
+            </button>
+
+            {/* Video card */}
+            <button
+              type="button"
+              onClick={() => setMuteVideo(!muteVideo)}
+              className={[
+                'flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                muteVideo
+                  ? 'border-danger/50 bg-danger/5 text-danger'
+                  : 'border-blue-200/60 bg-gradient-to-b from-blue-50 to-slate-50 text-blue-700 hover:from-blue-100 hover:to-slate-100',
+              ].join(' ')}
+            >
+              {muteVideo
+                ? <VideoOff className="h-5 w-5" aria-hidden="true" />
+                : <Video className="h-5 w-5" aria-hidden="true" />}
+              <span className="font-medium">{muteVideo ? 'Video Off' : 'Video On'}</span>
+            </button>
+          </div>
+
           <div className="flex justify-end gap-3 pt-1">
             <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Cancel</button>
             <button type="submit" disabled={!isValid || loading} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60">
@@ -608,7 +787,7 @@ export default function DashboardPage() {
   const [scheduledMeeting, setScheduledMeeting] = useState<MeetingOut | null>(null)
   const [activeTab, setActiveTab] = useState<'upcoming' | 'previous'>('upcoming')
 
-  // ── Sidebar view state (new) ──────────────────────────────────────────────
+  // ── Sidebar view state ────────────────────────────────────────────────────
   const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>('home')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -652,13 +831,13 @@ export default function DashboardPage() {
 
   // ── Handlers (unchanged) ──────────────────────────────────────────────────
 
-  async function handleNewMeeting() {
+  async function handleNewMeeting(videoOn = true) {
     if (newMeetingLoading) return
     setNewMeetingLoading(true)
     setNewMeetingError(null)
     try {
       const meeting = await apiFetch<MeetingOut>('/meetings/instant', { method: 'POST' })
-      router.push(`/meeting/${meeting.meeting_code}`)
+      router.push(`/meeting/${meeting.meeting_code}?video=${videoOn}&audio=true`)
     } catch (err) {
       setNewMeetingError((err as Error).message)
       setNewMeetingLoading(false)
@@ -680,38 +859,25 @@ export default function DashboardPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  // ─ Action button definitions shared by the Home view ─
-  // iconBg uses Zoom brand colours: orange for "start meeting", blue for the rest
-  const homeActions = [
-    {
-      label: 'New Meeting' as const,
-      icon: newMeetingLoading
-        ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-        : <Video className="h-5 w-5" aria-hidden="true" />,
-      onClick: handleNewMeeting,
-      iconBg: '#ff742e',
-      disabled: newMeetingLoading,
-    },
+  // ─ Action button definitions (all tiles except New Meeting) ─
+  const secondaryActions = [
     {
       label: 'Join' as const,
       icon: <Plus className="h-5 w-5" aria-hidden="true" />,
       onClick: () => setShowJoin(true),
       iconBg: '#0b5cff',
-      disabled: false,
     },
     {
       label: 'Schedule' as const,
       icon: <Calendar className="h-5 w-5" aria-hidden="true" />,
       onClick: openSchedule,
       iconBg: '#0b5cff',
-      disabled: false,
     },
     {
       label: 'Share Screen' as const,
       icon: <Monitor className="h-5 w-5" aria-hidden="true" />,
       onClick: () => {},
       iconBg: '#0b5cff',
-      disabled: false,
     },
   ]
 
@@ -725,7 +891,7 @@ export default function DashboardPage() {
       <Navbar
         onSchedule={openSchedule}
         onJoin={() => setShowJoin(true)}
-        onHost={handleNewMeeting}
+        onHost={(videoOn) => handleNewMeeting(videoOn)}
         activeView={activeSidebarView}
         onNavigate={handleMobileNavigate}
         isMobileMenuOpen={isMobileMenuOpen}
@@ -768,16 +934,22 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Action tiles — horizontal row, icon above text */}
+                {/* Action tiles */}
                 <div className="flex flex-shrink-0 gap-2">
-                  {homeActions.map((action) => (
+
+                  {/* New Meeting — split tile: main click + chevron dropdown */}
+                  <NewMeetingTile
+                    loading={newMeetingLoading}
+                    onStart={handleNewMeeting}
+                  />
+
+                  {/* Secondary tiles */}
+                  {secondaryActions.map((action) => (
                     <button
                       key={action.label}
                       onClick={action.onClick}
-                      disabled={action.disabled}
-                      className="flex w-[78px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex w-[78px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      {/* Icon circle uses the brand colour via inline style */}
                       <span
                         style={{ backgroundColor: action.iconBg }}
                         className="flex h-10 w-10 items-center justify-center rounded-full text-white"
@@ -785,7 +957,7 @@ export default function DashboardPage() {
                         {action.icon}
                       </span>
                       <span className="text-center text-[11px] font-medium leading-tight">
-                        {action.label === 'New Meeting' && newMeetingLoading ? 'Starting…' : action.label}
+                        {action.label}
                       </span>
                     </button>
                   ))}
