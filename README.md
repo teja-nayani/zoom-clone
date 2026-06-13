@@ -258,6 +258,34 @@ Full interactive docs at `http://localhost:8000/docs` when the backend is runnin
 
 ---
 
+## Deployment
+
+### Frontend → Vercel
+
+1. Push the repo to GitHub and import it into [Vercel](https://vercel.com).
+2. In the Vercel project settings, add the following **Environment Variable**:
+
+   | Key | Value |
+   |---|---|
+   | `NEXT_PUBLIC_BACKEND_URL` | `https://<your-render-service>.onrender.com` |
+
+3. Deploy. Vercel will bake the variable into the Next.js build so all API fetches and WebSocket connections point to the production backend.
+
+> The WebSocket protocol is derived automatically: `https://` → `wss://`, `http://` → `ws://`.
+
+---
+
+### Backend → Render
+
+1. Create a new **Web Service** on [Render](https://render.com) pointing to the `backend/` directory.
+2. Set **Build Command**: `pip install -r requirements.txt`
+3. Set **Start Command**: `uvicorn main:app --host 0.0.0.0 --port 10000`
+4. No additional environment variables are required for the MVP.
+
+> CORS is configured to `allow_origins=["*"]` so any Vercel preview URL is accepted automatically.
+
+---
+
 ## License
 
 MIT

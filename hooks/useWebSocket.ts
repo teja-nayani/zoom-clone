@@ -18,10 +18,11 @@ export interface UseWebSocketReturn {
   subscribeToMessages: (listener: (msg: WsMessage) => void) => () => void
 }
 
-const WS_BASE = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000').replace(
-  /^http/,
-  'ws',
-)
+// Derive the WebSocket base from the HTTP backend URL:
+//   https://... → wss://...
+//   http://...  → ws://...
+const _httpBase = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'
+const WS_BASE = _httpBase.startsWith('https') ? _httpBase.replace(/^https/, 'wss') : _httpBase.replace(/^http/, 'ws')
 
 /**
  * Opens a WebSocket connection to the signaling server for a specific meeting room.
