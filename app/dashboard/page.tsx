@@ -1,20 +1,24 @@
 'use client'
 
+import Image from 'next/image'
 import {
   Calendar,
   Check,
   Clock,
   Copy,
+  HelpCircle,
   Loader2,
+  Menu,
   Monitor,
   MoreHorizontal,
   Plus,
   Settings,
+  User,
   Video,
   X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { type FormEvent, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 // ---------------------------------------------------------------------------
 // API types (mirroring backend schemas)
@@ -62,7 +66,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 // ---------------------------------------------------------------------------
-// Date/time formatting utilities
+// Formatting utilities
 // ---------------------------------------------------------------------------
 
 function formatDateTime(iso: string | null): string {
@@ -74,7 +78,6 @@ function formatDateTime(iso: string | null): string {
 }
 
 function formatMeetingCode(code: string): string {
-  // "123456789" → "123 456 789"
   return code.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')
 }
 
@@ -85,118 +88,181 @@ function durationLabel(minutes: number | null): string {
 }
 
 // ---------------------------------------------------------------------------
-// Navbar
+// Navbar  (logo + quick-action text links + settings/avatar)
 // ---------------------------------------------------------------------------
 
-function Navbar() {
+type SidebarView = 'home' | 'meetings'
+
+function Navbar({
+  onSchedule,
+  onJoin,
+  onHost,
+  activeView,
+  onNavigate,
+  isMobileMenuOpen,
+  onToggleMobileMenu,
+}: {
+  onSchedule: () => void
+  onJoin: () => void
+  onHost: () => void
+  activeView: SidebarView
+  onNavigate: (view: SidebarView) => void
+  isMobileMenuOpen: boolean
+  onToggleMobileMenu: () => void
+}) {
+  const mobileNavItems: { label: string; view: SidebarView }[] = [
+    { label: 'Home', view: 'home' },
+    { label: 'Meetings', view: 'meetings' },
+  ]
+
   return (
-    <header className="fixed inset-x-0 top-0 z-[30] flex h-[var(--spacing-navbar,4rem)] items-center justify-between border-b border-border bg-background px-6 md:px-8">
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Video className="h-4 w-4 text-primary-foreground" aria-hidden="true" />
+    <header className="fixed inset-x-0 top-0 z-[30] border-b border-border bg-background">
+      <div className="relative flex h-[var(--spacing-navbar,4rem)] items-center justify-between px-6 md:px-8">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            aria-expanded={isMobileMenuOpen}
+            onClick={onToggleMobileMenu}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <Image
+            src="/Zoom_logo.svg"
+            alt="Zoom"
+            width={115}
+            height={28}
+            priority
+            className="h-auto"
+          />
         </div>
-        <span className="text-xl font-semibold tracking-tight text-foreground">Zoom</span>
+
+        <div className="flex items-center gap-6">
+          {/* Quick-action text links — match Zoom portal header */}
+          <nav className="hidden items-center gap-6 sm:flex">
+            {[
+              { label: 'Schedule', onClick: onSchedule },
+              { label: 'Join',     onClick: onJoin     },
+              { label: 'Host',     onClick: onHost     },
+            ].map(({ label, onClick }) => (
+              <button
+                key={label}
+                onClick={onClick}
+                className="text-[16px] font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Divider */}
+          <div className="hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
+
+          {/* Icon controls */}
+          <div className="flex items-center gap-3">
+            <button
+              aria-label="Settings"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Settings className="h-[1.125rem] w-[1.125rem]" aria-hidden="true" />
+            </button>
+            <button
+              aria-label="Account menu"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-[15px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              D
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          aria-label="Settings"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+
+      {/* Mobile navigation dropdown */}
+      {isMobileMenuOpen && (
+        <nav
+          aria-label="Mobile navigation"
+          className="absolute left-0 right-0 top-full border-t border-border bg-background px-3 py-2 shadow-card lg:hidden"
         >
-          <Settings className="h-5 w-5" aria-hidden="true" />
-        </button>
-        <button
-          aria-label="Account menu"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          D
-        </button>
-      </div>
+          {mobileNavItems.map(({ label, view }) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => onNavigate(view)}
+              className={[
+                'flex w-full items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                activeView === view
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
     </header>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Action tiles
+// LeftSidebar  (2-column layout — Home + Meetings only, My Account + Support)
 // ---------------------------------------------------------------------------
 
-interface ActionTilesProps {
-  onNewMeeting: () => void
-  onJoin: () => void
-  onSchedule: () => void
-  newMeetingLoading: boolean
-}
+function LeftSidebar({
+  activeView,
+  onNavigate,
+}: {
+  activeView: SidebarView
+  onNavigate: (v: SidebarView) => void
+}) {
+  const navItems: { label: string; view: SidebarView }[] = [
+    { label: 'Home',     view: 'home'     },
+    { label: 'Meetings', view: 'meetings' },
+  ]
 
-function ActionTiles({ onNewMeeting, onJoin, onSchedule, newMeetingLoading }: ActionTilesProps) {
-  const tiles: { label: string; icon: ReactNode; variant: 'primary' | 'secondary'; onClick: () => void; disabled: boolean }[] = [
-    {
-      label: 'New Meeting',
-      icon: newMeetingLoading
-        ? <Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" />
-        : <Video className="h-7 w-7" aria-hidden="true" />,
-      variant: 'primary' as const,
-      onClick: onNewMeeting,
-      disabled: newMeetingLoading,
-    },
-    {
-      label: 'Join',
-      icon: <Plus className="h-7 w-7" aria-hidden="true" />,
-      variant: 'secondary' as const,
-      onClick: onJoin,
-      disabled: false,
-    },
-    {
-      label: 'Schedule',
-      icon: <Calendar className="h-7 w-7" aria-hidden="true" />,
-      variant: 'secondary' as const,
-      onClick: onSchedule,
-      disabled: false,
-    },
-    {
-      label: 'Share Screen',
-      icon: <Monitor className="h-7 w-7" aria-hidden="true" />,
-      variant: 'secondary' as const,
-      onClick: () => {},
-      disabled: false,
-    },
+  const bottomItems: { label: string; icon: typeof User }[] = [
+    { label: 'My Account', icon: User       },
+    { label: 'Support',    icon: HelpCircle },
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {tiles.map((tile) => (
-        <button
-          key={tile.label}
-          onClick={tile.onClick}
-          disabled={tile.disabled}
-          className={[
-            'group flex flex-col items-center justify-center gap-3 rounded-xl p-6 shadow-card transition-all',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            'hover:shadow-overlay active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70',
-            tile.variant === 'primary'
-              ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
-              : 'bg-card text-foreground hover:bg-muted',
-          ].join(' ')}
-        >
-          <span
+    <aside className="hidden w-60 flex-shrink-0 flex-col overflow-y-auto border-r border-border bg-background lg:flex">
+      {/* Main navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
+        {navItems.map(({ label, view }) => (
+          <button
+            key={view}
+            onClick={() => onNavigate(view)}
             className={[
-              'flex h-14 w-14 items-center justify-center rounded-full',
-              tile.variant === 'primary'
-                ? 'bg-primary-foreground/15'
-                : 'bg-primary/10 text-primary',
+              'flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              activeView === view
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             ].join(' ')}
           >
-            {tile.icon}
-          </span>
-          <span className="text-sm font-medium">
-            {tile.label === 'New Meeting' && newMeetingLoading ? 'Starting…' : tile.label}
-          </span>
-        </button>
-      ))}
-    </div>
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Bottom account links */}
+      <div className="border-t border-border px-3 py-3 space-y-0.5">
+        {bottomItems.map(({ label, icon: Icon }) => (
+          <button
+            key={label}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </div>
+    </aside>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Copy button (inline, flips to "Copied ✓" for 2s)
+// CopyButton
 // ---------------------------------------------------------------------------
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -230,7 +296,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Meeting card
+// MeetingCard
 // ---------------------------------------------------------------------------
 
 interface MeetingCardProps {
@@ -278,7 +344,7 @@ function MeetingCard({ title, meta, meetingCode, inviteLink, primaryAction }: Me
 }
 
 // ---------------------------------------------------------------------------
-// Empty state / skeleton
+// Empty state / Skeleton / ErrorBanner
 // ---------------------------------------------------------------------------
 
 function EmptyState({ message }: { message: string }) {
@@ -320,7 +386,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
 }
 
 // ---------------------------------------------------------------------------
-// Schedule modal
+// ScheduleModal
 // ---------------------------------------------------------------------------
 
 interface ScheduleModalProps {
@@ -338,11 +404,8 @@ function ScheduleModal({ onClose, onSuccess }: ScheduleModalProps) {
   const [error, setError] = useState<string | null>(null)
   const firstInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    firstInputRef.current?.focus()
-  }, [])
+  useEffect(() => { firstInputRef.current?.focus() }, [])
 
-  // Prefill date/time to now + 1 hour
   useEffect(() => {
     const d = new Date(Date.now() + 60 * 60 * 1000)
     setDate(d.toISOString().slice(0, 10))
@@ -371,131 +434,46 @@ function ScheduleModal({ onClose, onSuccess }: ScheduleModalProps) {
   const isValid = title.trim().length > 0 && date.length > 0 && time.length > 0
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="schedule-dialog-title"
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      <div className="relative w-full max-w-md animate-slide-up rounded-2xl bg-card shadow-overlay">
-        {/* Header */}
+    <div role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title" className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="relative w-full max-w-md animate-in fade-in zoom-in-95 duration-150 rounded-2xl bg-card shadow-overlay">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 id="schedule-dialog-title" className="text-base font-semibold text-foreground">
-            Schedule a Meeting
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <h2 id="schedule-dialog-title" className="text-base font-semibold text-foreground">Schedule a Meeting</h2>
+          <button onClick={onClose} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
-          {/* Title */}
           <div className="space-y-1.5">
-            <label htmlFor="sched-title" className="text-sm font-medium text-foreground">
-              Title <span className="text-danger">*</span>
-            </label>
-            <input
-              ref={firstInputRef}
-              id="sched-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Team Sync"
-              maxLength={255}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <label htmlFor="sched-title" className="text-sm font-medium text-foreground">Title <span className="text-danger">*</span></label>
+            <input ref={firstInputRef} id="sched-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Team Sync" maxLength={255} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
-
-          {/* Description */}
           <div className="space-y-1.5">
-            <label htmlFor="sched-desc" className="text-sm font-medium text-foreground">
-              Description
-            </label>
-            <textarea
-              id="sched-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional agenda or notes"
-              rows={2}
-              className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <label htmlFor="sched-desc" className="text-sm font-medium text-foreground">Description</label>
+            <textarea id="sched-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional agenda or notes" rows={2} className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
-
-          {/* Date + Time */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label htmlFor="sched-date" className="text-sm font-medium text-foreground">
-                Date <span className="text-danger">*</span>
-              </label>
-              <input
-                id="sched-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
+              <label htmlFor="sched-date" className="text-sm font-medium text-foreground">Date <span className="text-danger">*</span></label>
+              <input id="sched-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="sched-time" className="text-sm font-medium text-foreground">
-                Time <span className="text-danger">*</span>
-              </label>
-              <input
-                id="sched-time"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
+              <label htmlFor="sched-time" className="text-sm font-medium text-foreground">Time <span className="text-danger">*</span></label>
+              <input id="sched-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
           </div>
-
-          {/* Duration */}
           <div className="space-y-1.5">
-            <label htmlFor="sched-duration" className="text-sm font-medium text-foreground">
-              Duration
-            </label>
-            <select
-              id="sched-duration"
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
+            <label htmlFor="sched-duration" className="text-sm font-medium text-foreground">Duration</label>
+            <select id="sched-duration" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {[15, 30, 45, 60, 90].map((m) => (
-                <option key={m} value={m}>
-                  {m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' : ''}`}
-                </option>
+                <option key={m} value={m}>{m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' : ''}`}</option>
               ))}
             </select>
           </div>
-
           {error && <ErrorBanner message={error} />}
-
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!isValid || loading}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Cancel</button>
+            <button type="submit" disabled={!isValid || loading} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60">
               {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               {loading ? 'Scheduling…' : 'Schedule Meeting'}
             </button>
@@ -507,7 +485,7 @@ function ScheduleModal({ onClose, onSuccess }: ScheduleModalProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Scheduled confirmation banner (shown after a successful schedule)
+// ScheduleSuccessBanner
 // ---------------------------------------------------------------------------
 
 function ScheduleSuccessBanner({ meeting, onDismiss }: { meeting: MeetingOut; onDismiss: () => void }) {
@@ -517,9 +495,7 @@ function ScheduleSuccessBanner({ meeting, onDismiss }: { meeting: MeetingOut; on
         <Check className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
         <div>
           <p className="text-sm font-medium text-foreground">Meeting scheduled!</p>
-          <p className="text-xs text-muted-foreground">
-            {meeting.title} · {formatDateTime(meeting.scheduled_start_time)}
-          </p>
+          <p className="text-xs text-muted-foreground">{meeting.title} · {formatDateTime(meeting.scheduled_start_time)}</p>
         </div>
       </div>
       <button onClick={onDismiss} aria-label="Dismiss" className="text-muted-foreground hover:text-foreground">
@@ -530,7 +506,7 @@ function ScheduleSuccessBanner({ meeting, onDismiss }: { meeting: MeetingOut; on
 }
 
 // ---------------------------------------------------------------------------
-// Join modal
+// JoinModal
 // ---------------------------------------------------------------------------
 
 interface JoinModalProps {
@@ -548,7 +524,6 @@ function JoinModal({ onClose }: JoinModalProps) {
   useEffect(() => { inputRef.current?.focus() }, [])
 
   function extractCode(raw: string): string {
-    // Accept "123456789", "123 456 789", or full URL ending in /meeting/123456789
     const cleaned = raw.trim().replace(/\s/g, '')
     const match = cleaned.match(/(\d{9})$/)
     return match ? match[1] : cleaned
@@ -561,9 +536,7 @@ function JoinModal({ onClose }: JoinModalProps) {
     setLoading(true)
     setError(null)
     try {
-      // Validate the meeting exists
       await apiFetch<MeetingOut>(`/meetings/${code}`)
-      // Register as participant
       await apiFetch(`/meetings/${code}/join`, {
         method: 'POST',
         body: JSON.stringify({ display_name: displayName.trim() }),
@@ -578,63 +551,28 @@ function JoinModal({ onClose }: JoinModalProps) {
   const isValid = input.trim().length > 0 && displayName.trim().length > 0
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="join-dialog-title"
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-    >
+    <div role="dialog" aria-modal="true" aria-labelledby="join-dialog-title" className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div className="relative w-full max-w-sm animate-slide-up rounded-2xl bg-card shadow-overlay">
+      <div className="relative w-full max-w-sm animate-in fade-in zoom-in-95 duration-150 rounded-2xl bg-card shadow-overlay">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 id="join-dialog-title" className="text-base font-semibold text-foreground">
-            Join a Meeting
-          </h2>
+          <h2 id="join-dialog-title" className="text-base font-semibold text-foreground">Join a Meeting</h2>
           <button onClick={onClose} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
         <form onSubmit={handleJoin} className="space-y-4 px-6 py-5">
           <div className="space-y-1.5">
-            <label htmlFor="join-code" className="text-sm font-medium text-foreground">
-              Meeting ID or Link
-            </label>
-            <input
-              ref={inputRef}
-              id="join-code"
-              type="text"
-              value={input}
-              onChange={(e) => { setInput(e.target.value); setError(null) }}
-              placeholder="123 456 789"
-              className={[
-                'w-full rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                error ? 'border-danger' : 'border-input bg-background',
-              ].join(' ')}
-            />
+            <label htmlFor="join-code" className="text-sm font-medium text-foreground">Meeting ID or Link</label>
+            <input ref={inputRef} id="join-code" type="text" value={input} onChange={(e) => { setInput(e.target.value); setError(null) }} placeholder="123 456 789" className={['w-full rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', error ? 'border-danger' : 'border-input bg-background'].join(' ')} />
             {error && <p className="text-xs text-danger">{error}</p>}
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="join-name" className="text-sm font-medium text-foreground">
-              Your Name
-            </label>
-            <input
-              id="join-name"
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Enter your display name"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <label htmlFor="join-name" className="text-sm font-medium text-foreground">Your Name</label>
+            <input id="join-name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your display name" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!isValid || loading}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Cancel</button>
+            <button type="submit" disabled={!isValid || loading} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60">
               {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               {loading ? 'Joining…' : 'Join'}
             </button>
@@ -646,13 +584,13 @@ function JoinModal({ onClose }: JoinModalProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Page
+// Page — 2-column layout with view-switching sidebar
 // ---------------------------------------------------------------------------
 
 export default function DashboardPage() {
   const router = useRouter()
 
-  // --- data state ---
+  // ── Data state (unchanged) ────────────────────────────────────────────────
   const [upcoming, setUpcoming] = useState<MeetingOut[]>([])
   const [recent, setRecent] = useState<RecentMeetingOut[]>([])
   const [loadingUpcoming, setLoadingUpcoming] = useState(true)
@@ -660,18 +598,26 @@ export default function DashboardPage() {
   const [upcomingError, setUpcomingError] = useState<string | null>(null)
   const [recentError, setRecentError] = useState<string | null>(null)
 
-  // --- action state ---
+  // ── Action state (unchanged) ──────────────────────────────────────────────
   const [newMeetingLoading, setNewMeetingLoading] = useState(false)
   const [newMeetingError, setNewMeetingError] = useState<string | null>(null)
 
-  // --- modals ---
+  // ── Modal & UI state (unchanged) ─────────────────────────────────────────
   const [showSchedule, setShowSchedule] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [scheduledMeeting, setScheduledMeeting] = useState<MeetingOut | null>(null)
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'previous'>('upcoming')
 
-  // ---------------------------------------------------------------------------
-  // Data fetching
-  // ---------------------------------------------------------------------------
+  // ── Sidebar view state (new) ──────────────────────────────────────────────
+  const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>('home')
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  function handleMobileNavigate(view: SidebarView) {
+    setActiveSidebarView(view)
+    setIsMobileMenuOpen(false)
+  }
+
+  // ── Data fetching (unchanged) ─────────────────────────────────────────────
 
   const fetchUpcoming = useCallback(async () => {
     setLoadingUpcoming(true)
@@ -704,9 +650,7 @@ export default function DashboardPage() {
     fetchRecent()
   }, [fetchUpcoming, fetchRecent])
 
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
+  // ── Handlers (unchanged) ──────────────────────────────────────────────────
 
   async function handleNewMeeting() {
     if (newMeetingLoading) return
@@ -724,115 +668,278 @@ export default function DashboardPage() {
   function handleScheduleSuccess(meeting: MeetingOut) {
     setShowSchedule(false)
     setScheduledMeeting(meeting)
-    // Refresh the upcoming list to show the newly created entry
+    // Switch to Meetings view so the new entry is immediately visible
+    setActiveSidebarView('meetings')
     fetchUpcoming()
   }
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  function openSchedule() {
+    setScheduledMeeting(null)
+    setShowSchedule(true)
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  // ─ Action button definitions shared by the Home view ─
+  // iconBg uses Zoom brand colours: orange for "start meeting", blue for the rest
+  const homeActions = [
+    {
+      label: 'New Meeting' as const,
+      icon: newMeetingLoading
+        ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+        : <Video className="h-5 w-5" aria-hidden="true" />,
+      onClick: handleNewMeeting,
+      iconBg: '#ff742e',
+      disabled: newMeetingLoading,
+    },
+    {
+      label: 'Join' as const,
+      icon: <Plus className="h-5 w-5" aria-hidden="true" />,
+      onClick: () => setShowJoin(true),
+      iconBg: '#0b5cff',
+      disabled: false,
+    },
+    {
+      label: 'Schedule' as const,
+      icon: <Calendar className="h-5 w-5" aria-hidden="true" />,
+      onClick: openSchedule,
+      iconBg: '#0b5cff',
+      disabled: false,
+    },
+    {
+      label: 'Share Screen' as const,
+      icon: <Monitor className="h-5 w-5" aria-hidden="true" />,
+      onClick: () => {},
+      iconBg: '#0b5cff',
+      disabled: false,
+    },
+  ]
 
   return (
     <>
-      <Navbar />
+      {/* Modals */}
+      {showSchedule && <ScheduleModal onClose={() => setShowSchedule(false)} onSuccess={handleScheduleSuccess} />}
+      {showJoin     && <JoinModal onClose={() => setShowJoin(false)} />}
 
-      {showSchedule && (
-        <ScheduleModal onClose={() => setShowSchedule(false)} onSuccess={handleScheduleSuccess} />
-      )}
-      {showJoin && (
-        <JoinModal onClose={() => setShowJoin(false)} />
-      )}
+      {/* Fixed navbar */}
+      <Navbar
+        onSchedule={openSchedule}
+        onJoin={() => setShowJoin(true)}
+        onHost={handleNewMeeting}
+        activeView={activeSidebarView}
+        onNavigate={handleMobileNavigate}
+        isMobileMenuOpen={isMobileMenuOpen}
+        onToggleMobileMenu={() => setIsMobileMenuOpen((open) => !open)}
+      />
 
-      <main className="mx-auto min-h-screen max-w-4xl px-6 pb-16 pt-[calc(4rem+2rem)] md:px-8">
+      {/* 2-column body below navbar */}
+      <div className="flex h-[calc(100vh-var(--spacing-navbar,4rem))] overflow-hidden pt-[var(--spacing-navbar,4rem)]">
 
-        <h1 className="mb-8 text-2xl font-semibold text-foreground">Home</h1>
+        {/* ── Left sidebar ───────────────────────────────────────────────────── */}
+        <LeftSidebar activeView={activeSidebarView} onNavigate={setActiveSidebarView} />
 
-        {/* Action tiles */}
-        <section aria-label="Quick actions" className="mb-10">
-          <ActionTiles
-            onNewMeeting={handleNewMeeting}
-            onJoin={() => setShowJoin(true)}
-            onSchedule={() => { setScheduledMeeting(null); setShowSchedule(true) }}
-            newMeetingLoading={newMeetingLoading}
-          />
-          {newMeetingError && (
-            <div className="mt-3">
-              <ErrorBanner message={`Failed to start meeting: ${newMeetingError}`} onRetry={handleNewMeeting} />
-            </div>
-          )}
-        </section>
+        {/* ── Main content (scrollable) ──────────────────────────────────────── */}
+        <main className="no-scrollbar min-w-0 flex-1 overflow-y-auto">
 
-        {/* Schedule success banner */}
-        {scheduledMeeting && (
-          <div className="mb-6">
-            <ScheduleSuccessBanner meeting={scheduledMeeting} onDismiss={() => setScheduledMeeting(null)} />
-          </div>
-        )}
+          {/* ════════════════════════════════════════════════════════════════════
+              HOME VIEW
+              ════════════════════════════════════════════════════════════════════ */}
+          {activeSidebarView === 'home' && (
+            <div className="space-y-6 p-6">
 
-        {/* Upcoming meetings */}
-        <section aria-labelledby="upcoming-heading" className="mb-10">
-          <h2 id="upcoming-heading" className="mb-4 text-lg font-semibold text-foreground">
-            Upcoming Meetings
-          </h2>
-          {loadingUpcoming ? (
-            <div className="space-y-3">
-              <SkeletonRow /><SkeletonRow />
-            </div>
-          ) : upcomingError ? (
-            <ErrorBanner message={upcomingError} onRetry={fetchUpcoming} />
-          ) : upcoming.length === 0 ? (
-            <EmptyState message="No upcoming meetings. Schedule one to get started." />
-          ) : (
-            <div className="space-y-3">
-              {upcoming.map((m) => (
-                <MeetingCard
-                  key={m.id}
-                  title={m.title}
-                  meta={`${formatDateTime(m.scheduled_start_time)}${durationLabel(m.duration_minutes)}`}
-                  meetingCode={m.meeting_code}
-                  inviteLink={m.invite_link}
-                  primaryAction={{
-                    label: 'Start',
-                    onClick: () => router.push(`/meeting/${m.meeting_code}`),
-                  }}
+              {/* Top row: Profile card (left) + Action tiles (right) */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+
+                {/* Profile card */}
+                <div className="flex-1 rounded-xl border border-border bg-card p-5 shadow-card">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-lg font-semibold text-primary">
+                        TN
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">Teja Nayani</p>
+                        <p className="text-sm text-muted-foreground">Plan: Basic</p>
+                      </div>
+                    </div>
+                    <button className="rounded-lg border border-border px-4 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      Manage Plan
+                    </button>
+                  </div>
+                </div>
+
+                {/* Action tiles — horizontal row, icon above text */}
+                <div className="flex flex-shrink-0 gap-2">
+                  {homeActions.map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={action.onClick}
+                      disabled={action.disabled}
+                      className="flex w-[78px] flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 text-foreground shadow-card transition-all hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {/* Icon circle uses the brand colour via inline style */}
+                      <span
+                        style={{ backgroundColor: action.iconBg }}
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-white"
+                      >
+                        {action.icon}
+                      </span>
+                      <span className="text-center text-[11px] font-medium leading-tight">
+                        {action.label === 'New Meeting' && newMeetingLoading ? 'Starting…' : action.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* New meeting error */}
+              {newMeetingError && (
+                <ErrorBanner
+                  message={`Failed to start meeting: ${newMeetingError}`}
+                  onRetry={handleNewMeeting}
                 />
-              ))}
-            </div>
-          )}
-        </section>
+              )}
 
-        {/* Recent meetings */}
-        <section aria-labelledby="recent-heading">
-          <h2 id="recent-heading" className="mb-4 text-lg font-semibold text-foreground">
-            Recent Meetings
-          </h2>
-          {loadingRecent ? (
-            <div className="space-y-3">
-              <SkeletonRow /><SkeletonRow />
-            </div>
-          ) : recentError ? (
-            <ErrorBanner message={recentError} onRetry={fetchRecent} />
-          ) : recent.length === 0 ? (
-            <EmptyState message="No recent meetings yet." />
-          ) : (
-            <div className="space-y-3">
-              {recent.map((r) => (
-                <MeetingCard
-                  key={r.id}
-                  title={r.meeting.title}
-                  meta={`Joined ${formatDateTime(r.joined_at)}`}
-                  meetingCode={r.meeting.meeting_code}
-                  inviteLink={r.meeting.invite_link}
-                  primaryAction={{
-                    label: 'Start Again',
-                    onClick: () => router.push(`/meeting/${r.meeting.meeting_code}`),
-                  }}
-                />
-              ))}
+              {/* Recent activity */}
+              <div>
+                <h2 className="mb-4 text-base font-semibold text-foreground">Recent activity</h2>
+
+                {loadingRecent ? (
+                  <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-card">
+                    <SkeletonRow /><SkeletonRow />
+                  </div>
+                ) : recent.length > 0 ? (
+                  <div className="divide-y divide-border rounded-xl border border-border bg-card shadow-card">
+                    {recent.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                            <Video className="h-4 w-4 text-primary" aria-hidden="true" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">{r.meeting.title}</p>
+                            <p className="text-xs text-muted-foreground">Joined {formatDateTime(r.joined_at)}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => router.push(`/meeting/${r.meeting.meeting_code}`)}
+                          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          Start Again
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-16 text-center shadow-card">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+                      <Clock className="h-8 w-8 text-muted-foreground/30" aria-hidden="true" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">No recent activity</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
-        </section>
-      </main>
+
+          {/* ════════════════════════════════════════════════════════════════════
+              MEETINGS VIEW
+              ════════════════════════════════════════════════════════════════════ */}
+          {activeSidebarView === 'meetings' && (
+            <div className="p-6">
+
+              {/* Success banner (shown after scheduling from any view) */}
+              {scheduledMeeting && (
+                <div className="mb-5">
+                  <ScheduleSuccessBanner
+                    meeting={scheduledMeeting}
+                    onDismiss={() => setScheduledMeeting(null)}
+                  />
+                </div>
+              )}
+
+              {/* Section header */}
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold text-foreground">Meetings</h2>
+                <button
+                  onClick={openSchedule}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Schedule a Meeting
+                </button>
+              </div>
+
+              {/* Tab bar */}
+              <div className="mb-6 flex border-b border-border">
+                {(['upcoming', 'previous'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={[
+                      '-mb-px border-b-2 px-5 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      activeTab === tab
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    ].join(' ')}
+                  >
+                    {tab === 'upcoming' ? 'Upcoming' : 'Previous'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Upcoming tab content */}
+              {activeTab === 'upcoming' && (
+                loadingUpcoming ? (
+                  <div className="space-y-3"><SkeletonRow /><SkeletonRow /></div>
+                ) : upcomingError ? (
+                  <ErrorBanner message={upcomingError} onRetry={fetchUpcoming} />
+                ) : upcoming.length === 0 ? (
+                  <EmptyState message="No upcoming meetings. Schedule one to get started." />
+                ) : (
+                  <div className="space-y-3">
+                    {upcoming.map((m) => (
+                      <MeetingCard
+                        key={m.id}
+                        title={m.title}
+                        meta={`${formatDateTime(m.scheduled_start_time)}${durationLabel(m.duration_minutes)}`}
+                        meetingCode={m.meeting_code}
+                        inviteLink={m.invite_link}
+                        primaryAction={{ label: 'Start', onClick: () => router.push(`/meeting/${m.meeting_code}`) }}
+                      />
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* Previous tab content */}
+              {activeTab === 'previous' && (
+                loadingRecent ? (
+                  <div className="space-y-3"><SkeletonRow /><SkeletonRow /></div>
+                ) : recentError ? (
+                  <ErrorBanner message={recentError} onRetry={fetchRecent} />
+                ) : recent.length === 0 ? (
+                  <EmptyState message="No previous meetings yet." />
+                ) : (
+                  <div className="space-y-3">
+                    {recent.map((r) => (
+                      <MeetingCard
+                        key={r.id}
+                        title={r.meeting.title}
+                        meta={`Joined ${formatDateTime(r.joined_at)}`}
+                        meetingCode={r.meeting.meeting_code}
+                        inviteLink={r.meeting.invite_link}
+                        primaryAction={{ label: 'Start Again', onClick: () => router.push(`/meeting/${r.meeting.meeting_code}`) }}
+                      />
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+        </main>
+      </div>
     </>
   )
 }
