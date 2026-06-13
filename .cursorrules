@@ -1,0 +1,14 @@
+# Zoom Clone - Cursor AI Instructions
+
+## Tech Stack
+- Frontend: Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
+- Backend: Python, FastAPI, SQLAlchemy, SQLite, WebSockets
+- Video: WebRTC (Mesh Architecture)
+
+## Coding Guidelines
+1. Do not use external CSS files. Use Tailwind utility classes exclusively.
+2. For the frontend, strictly adhere to the provided v0 design system tokens (e.g., bg-primary for the Zoom blue).
+3. Do not introduce complex Authentication (JWT/OAuth). Assume a default user is always authenticated (ID: 1).
+4. Keep all backend state (active WebSockets) in-memory for the MVP. Do not suggest Redis or Celery.
+5. Prioritize functional, clean, modular React components over heavily animated or overly complex DOM structures.
+6. When writing FastAPI endpoints, always use Pydantic schemas for request/response validation.

@@ -1,0 +1,157 @@
+/* =========================================================================
+   Zoom Clone — globals.css
+   Light theme only (Zoom web has no theme toggle).
+   Tokens are stored as HSL channels so Tailwind can do `hsl(var(--token))`
+   and apply opacity modifiers like `bg-primary/20`.
+   ========================================================================= */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ---- Brand ---- */
+    /* Zoom blue #0d6bde -> hsl(212, 89%, 46%) */
+    --primary: 212 89% 46%;
+    --primary-hover: 212 89% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    /* ---- Surfaces & text ---- */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%; /* #1a1a1a */
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    --secondary: 210 20% 96%; /* light neutral button */
+    --secondary-foreground: 0 0% 12%;
+
+    --muted: 210 20% 97%; /* #f5f7fa-ish subtle fills */
+    --muted-foreground: 220 9% 46%; /* #6b7280 metadata */
+
+    --accent: 210 20% 96%;
+    --accent-foreground: 0 0% 12%;
+
+    --border: 220 13% 91%; /* #e5e7eb */
+    --input: 220 13% 91%;
+    --ring: 212 89% 46%; /* focus ring = brand blue */
+
+    /* ---- Status ---- */
+    --danger: 0 75% 53%; /* #e02d2d */
+    --danger-hover: 0 70% 45%;
+    --danger-foreground: 0 0% 100%;
+
+    --success: 142 71% 37%; /* #16a34a */
+    --success-foreground: 0 0% 100%;
+
+    /* ---- Meeting room (dark stage, even in light app) ---- */
+    --meeting-bg: 240 6% 11%; /* #1a1a1e */
+    --meeting-foreground: 0 0% 98%;
+    --video-tile-bg: 240 6% 16%; /* #26262b */
+    --control-bar-bg: 240 5% 13%; /* #202024 */
+
+    /* ---- Radius ---- */
+    --radius: 0.5rem;
+
+    /* ---- Fonts (set the actual family in layout via next/font) ---- */
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", monospace;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    background-color: hsl(var(--background));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Consistent, accessible focus ring everywhere */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.18);
+  }
+}
+
+/* =========================================================================
+   Utility classes — small helpers used across the Zoom-clone flows.
+   ========================================================================= */
+@layer utilities {
+  /* Meeting ID: grouped, tabular mono digits (e.g. 123 4567 8901) */
+  .meeting-id {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+
+  /* Bottom scrim for legible name labels over video */
+  .tile-scrim {
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0) 60%
+    );
+  }
+
+  /* Active-speaker highlight ring */
+  .ring-speaker {
+    box-shadow: 0 0 0 2px hsl(var(--primary));
+  }
+
+  /* Frosted control bar / panels in the dark room */
+  .glass-dark {
+    background-color: hsl(var(--control-bar-bg) / 0.92);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Hide scrollbar but keep scrolling (filmstrips, chat) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Shimmer skeleton — pair with bg-muted on the parent */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: hsl(var(--muted));
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(0 0% 100% / 0.6),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}

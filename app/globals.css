@@ -1,0 +1,211 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* =========================================================================
+   Zoom Clone design tokens — HSL channels for Tailwind opacity modifiers
+   e.g. bg-primary/20, text-muted-foreground, etc.
+   Light theme only (Zoom web has no theme toggle).
+   ========================================================================= */
+
+@theme inline {
+  /* Brand & primary */
+  --color-primary: hsl(var(--primary));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  /* Surfaces */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  /* Secondary / muted */
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  /* Borders / inputs */
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  /* Status */
+  --color-danger: hsl(var(--danger));
+  --color-danger-hover: hsl(var(--danger-hover));
+  --color-danger-foreground: hsl(var(--danger-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  /* Meeting room (dark stage surfaces) */
+  --color-meeting: hsl(var(--meeting-bg));
+  --color-meeting-foreground: hsl(var(--meeting-foreground));
+  --color-video-tile: hsl(var(--video-tile-bg));
+  --color-control-bar: hsl(var(--control-bar-bg));
+
+  /* Radius */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  /* Spacing tokens */
+  --spacing-navbar: 4rem;
+  --spacing-panel: 20rem;
+  --spacing-control: 5rem;
+  --spacing-tile: 7rem;
+
+  /* Fonts */
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+:root {
+  /* ---- Brand ---- */
+  /* Zoom blue #0d6bde -> hsl(212, 89%, 46%) */
+  --primary: 212 89% 46%;
+  --primary-hover: 212 89% 40%;
+  --primary-foreground: 0 0% 100%;
+
+  /* ---- Surfaces & text ---- */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 0 0% 12%;
+
+  --muted: 210 20% 97%;
+  --muted-foreground: 220 9% 46%;
+
+  --accent: 210 20% 96%;
+  --accent-foreground: 0 0% 12%;
+
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 212 89% 46%;
+
+  /* ---- Status ---- */
+  --danger: 0 75% 53%;
+  --danger-hover: 0 70% 45%;
+  --danger-foreground: 0 0% 100%;
+
+  --success: 142 71% 37%;
+  --success-foreground: 0 0% 100%;
+
+  /* ---- Meeting room (dark stage, even in light app) ---- */
+  --meeting-bg: 240 6% 11%;
+  --meeting-foreground: 0 0% 98%;
+  --video-tile-bg: 240 6% 16%;
+  --control-bar-bg: 240 5% 13%;
+
+  /* ---- Radius ---- */
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+    outline-color: hsl(var(--ring) / 0.5);
+  }
+
+  html {
+    background-color: hsl(var(--background));
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.18);
+  }
+}
+
+/* =========================================================================
+   Utility classes used across the Zoom-clone flows
+   ========================================================================= */
+@layer utilities {
+  /* Meeting ID — grouped, tabular mono digits */
+  .meeting-id {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+
+  /* Bottom scrim for legible name labels over video */
+  .tile-scrim {
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0) 60%
+    );
+  }
+
+  /* Active-speaker highlight ring */
+  .ring-speaker {
+    box-shadow: 0 0 0 2px hsl(var(--primary));
+  }
+
+  /* Frosted control bar / panels in the dark room */
+  .glass-dark {
+    background-color: hsl(var(--control-bar-bg) / 0.92);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Hide scrollbar but keep scrolling */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Shimmer skeleton */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: hsl(var(--muted));
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(0 0% 100% / 0.6),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
