@@ -120,10 +120,20 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
             elif event_type == "mute-participant":
                 target_id = payload.get("target")
                 if target_id:
+                    room = manager.rooms.get(meeting_code, {})
+                    if target_id in room:
+                        room[target_id]["is_muted"] = True
                     await manager.send_personal_message(
                         {"type": "host-muted-you", "payload": {}},
                         meeting_code,
                         target_id,
+                    )
+                    await manager.broadcast_to_room(
+                        {
+                            "type": "participant-audio-updated",
+                            "payload": {"client_id": target_id, "is_muted": True},
+                        },
+                        meeting_code,
                     )
 
             elif event_type == "remove-participant":
@@ -133,6 +143,24 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
                         {"type": "removed-from-meeting", "payload": {}},
                         meeting_code,
                         target_id,
+                    )
+
+            elif event_type == "chat-message":
+                text = str(payload.get("text", "")).strip()
+                if text:
+                    await manager.broadcast_to_room(
+                        {
+                            "type": "chat-message",
+                            "payload": {
+                                "client_id": client_id,
+                                "display_name": display_name,
+                                # Server-side length cap to prevent abuse
+                                "text": text[:1000],
+                            },
+                        },
+                        meeting_code,
+                        # No exclude_client_id: sender receives their own message
+                        # as an echo so the ChatPanel only needs one code path.
                     )
 
             elif event_type == "leave-room":

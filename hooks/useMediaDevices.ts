@@ -12,6 +12,8 @@ export interface MediaDevicesState {
   activeVideoTrack: MediaStreamTrack | null
   error: string | null
   toggleMute: () => void
+  /** Host-forced mute — updates UI state and disables the mic track. */
+  setMuted: (muted: boolean) => void
   toggleVideo: () => void
   /**
    * Requests getDisplayMedia, swaps the video track in localStream for the screen
@@ -94,6 +96,13 @@ export function useMediaDevices(): MediaDevicesState {
     setIsMuted(next)
   }, [isMuted])
 
+  const setMuted = useCallback((muted: boolean) => {
+    const stream = streamRef.current
+    if (!stream) return
+    stream.getAudioTracks().forEach((t) => { t.enabled = !muted })
+    setIsMuted(muted)
+  }, [])
+
   const toggleVideo = useCallback(() => {
     const stream = streamRef.current
     if (!stream) return
@@ -173,6 +182,7 @@ export function useMediaDevices(): MediaDevicesState {
     activeVideoTrack,
     error,
     toggleMute,
+    setMuted,
     toggleVideo,
     startScreenShare,
     stopScreenShare,

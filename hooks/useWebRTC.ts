@@ -355,7 +355,7 @@ export function useWebRTC(
         break
 
       case 'host-muted-you':
-        localStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = false })
+        // Handled in meeting-room via setMuted — keep WebRTC layer free of UI state.
         break
 
       default:
