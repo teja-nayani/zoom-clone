@@ -1,19 +1,34 @@
 'use client'
 
+import { useMediaDevices } from '@/hooks/useMediaDevices'
+import { useWebSocket, type WsStatus } from '@/hooks/useWebSocket'
 import {
+  MessageSquare,
   Mic,
   MicOff,
   Monitor,
-  MessageSquare,
   PhoneOff,
   Users,
   Video,
   VideoOff,
+  WifiOff,
 } from 'lucide-react'
-import { useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 // ---------------------------------------------------------------------------
-// Video tile
+// Stable client ID — generated once per page load via crypto.randomUUID()
+// ---------------------------------------------------------------------------
+
+function generateClientId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments where crypto.randomUUID is unavailable
+  return Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
+// ---------------------------------------------------------------------------
+// VideoTile
 // ---------------------------------------------------------------------------
 
 type VideoTileProps = {
@@ -22,15 +37,39 @@ type VideoTileProps = {
   isVideoOn?: boolean
   isActiveSpeaker?: boolean
   isSelf?: boolean
+  /** Live MediaStream to render inside the tile. */
+  stream?: MediaStream | null
 }
 
-function VideoTile({ displayName, isMuted, isVideoOn, isActiveSpeaker, isSelf }: VideoTileProps) {
+function VideoTile({
+  displayName,
+  isMuted,
+  isVideoOn,
+  isActiveSpeaker,
+  isSelf,
+  stream,
+}: VideoTileProps) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  // Attach the stream to the <video> element whenever it changes
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    if (stream) {
+      el.srcObject = stream
+    } else {
+      el.srcObject = null
+    }
+  }, [stream])
+
   const initials = displayName
     .split(' ')
     .map((w) => w[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
+
+  const showVideo = isVideoOn && !!stream
 
   return (
     <div
@@ -39,12 +78,21 @@ function VideoTile({ displayName, isMuted, isVideoOn, isActiveSpeaker, isSelf }:
         isActiveSpeaker ? 'ring-speaker ring-2' : '',
       ].join(' ')}
     >
-      {isVideoOn ? (
-        /* Real <video> element wired up in Phase 3 */
-        <div className="absolute inset-0 flex items-center justify-center bg-video-tile">
-          <span className="text-xs text-meeting-foreground/40">Camera feed</span>
-        </div>
-      ) : (
+      {/* Live camera feed */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        // Self-view must be muted to prevent audio feedback
+        muted={isSelf}
+        className={[
+          'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
+          showVideo ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        ].join(' ')}
+      />
+
+      {/* Avatar fallback — shown when video is off or stream is absent */}
+      {!showVideo && (
         <div className="flex flex-col items-center gap-2">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-xl font-semibold text-meeting-foreground">
             {initials}
@@ -69,7 +117,7 @@ function VideoTile({ displayName, isMuted, isVideoOn, isActiveSpeaker, isSelf }:
 }
 
 // ---------------------------------------------------------------------------
-// Video grid
+// VideoGrid
 // ---------------------------------------------------------------------------
 
 type Participant = {
@@ -79,21 +127,20 @@ type Participant = {
   isVideoOn: boolean
   isActiveSpeaker: boolean
   isSelf: boolean
+  stream?: MediaStream | null
 }
 
 function VideoGrid({ participants }: { participants: Participant[] }) {
   const count = participants.length
 
   const gridClass =
-    count === 0
+    count <= 1
       ? 'grid-cols-1'
-      : count === 1
-        ? 'grid-cols-1'
-        : count === 2
+      : count === 2
+        ? 'grid-cols-2'
+        : count <= 4
           ? 'grid-cols-2'
-          : count <= 4
-            ? 'grid-cols-2'
-            : 'grid-cols-3'
+          : 'grid-cols-3'
 
   if (count === 0) {
     return (
@@ -113,6 +160,7 @@ function VideoGrid({ participants }: { participants: Participant[] }) {
           isVideoOn={p.isVideoOn}
           isActiveSpeaker={p.isActiveSpeaker}
           isSelf={p.isSelf}
+          stream={p.stream}
         />
       ))}
     </div>
@@ -120,20 +168,28 @@ function VideoGrid({ participants }: { participants: Participant[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Control bar button
+// ControlButton
 // ---------------------------------------------------------------------------
 
 type ControlButtonProps = {
   label: string
-  icon: React.ReactNode
-  activeIcon?: React.ReactNode
+  icon: ReactNode
+  activeIcon?: ReactNode
   active?: boolean
   danger?: boolean
   badge?: number
   onClick?: () => void
 }
 
-function ControlButton({ label, icon, activeIcon, active, danger, badge, onClick }: ControlButtonProps) {
+function ControlButton({
+  label,
+  icon,
+  activeIcon,
+  active,
+  danger,
+  badge,
+  onClick,
+}: ControlButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -146,7 +202,7 @@ function ControlButton({ label, icon, activeIcon, active, danger, badge, onClick
         danger
           ? 'bg-danger text-danger-foreground hover:bg-danger-hover'
           : active
-            ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
+            ? 'bg-primary/30 text-primary-foreground'
             : 'text-meeting-foreground hover:bg-white/10',
       ].join(' ')}
     >
@@ -164,7 +220,7 @@ function ControlButton({ label, icon, activeIcon, active, danger, badge, onClick
 }
 
 // ---------------------------------------------------------------------------
-// Control bar
+// ControlBar
 // ---------------------------------------------------------------------------
 
 type ControlBarProps = {
@@ -195,14 +251,14 @@ function ControlBar({
       <ControlButton
         label={isMuted ? 'Unmute' : 'Mute'}
         icon={<Mic className="h-5 w-5" />}
-        activeIcon={<MicOff className="h-5 w-5" />}
+        activeIcon={<MicOff className="h-5 w-5 text-danger" />}
         active={isMuted}
         onClick={onToggleMute}
       />
       <ControlButton
         label={isVideoOn ? 'Stop Video' : 'Start Video'}
         icon={<Video className="h-5 w-5" />}
-        activeIcon={<VideoOff className="h-5 w-5" />}
+        activeIcon={<VideoOff className="h-5 w-5 text-danger" />}
         active={!isVideoOn}
         onClick={onToggleVideo}
       />
@@ -239,20 +295,64 @@ function ControlBar({
 }
 
 // ---------------------------------------------------------------------------
-// Meeting info bar
+// Meeting info bar (with WS status indicator)
 // ---------------------------------------------------------------------------
 
-function MeetingInfoBar({ meetingId }: { meetingId: string }) {
+const WS_STATUS_STYLES: Record<WsStatus, { dot: string; label: string }> = {
+  connecting: { dot: 'bg-yellow-400 animate-pulse', label: 'Connecting…' },
+  open:        { dot: 'bg-success',                 label: 'Connected'    },
+  closed:      { dot: 'bg-muted-foreground',         label: 'Disconnected' },
+  error:       { dot: 'bg-danger',                  label: 'Error'        },
+}
+
+function MeetingInfoBar({
+  meetingId,
+  wsStatus,
+}: {
+  meetingId: string
+  wsStatus: WsStatus
+}) {
+  const { dot, label } = WS_STATUS_STYLES[wsStatus]
   return (
-    <div className="flex items-center gap-3 px-4 pt-3 sm:px-6">
-      <span className="text-xs text-meeting-foreground/50">Meeting ID:</span>
-      <span className="meeting-id text-xs font-medium text-meeting-foreground/80">{meetingId}</span>
+    <div className="flex items-center justify-between px-4 pt-3 sm:px-6">
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-meeting-foreground/50">Meeting ID:</span>
+        <span className="meeting-id text-xs font-medium text-meeting-foreground/80">
+          {meetingId}
+        </span>
+      </div>
+      <div className="flex items-center gap-2" title={`WebSocket: ${label}`}>
+        {wsStatus === 'error' && <WifiOff className="h-3.5 w-3.5 text-danger" aria-hidden="true" />}
+        <span className={`h-2 w-2 rounded-full ${dot}`} aria-label={`Connection status: ${label}`} />
+        <span className="hidden text-xs text-meeting-foreground/40 sm:block">{label}</span>
+      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Side panel shell (participants / chat)
+// Media permission error overlay
+// ---------------------------------------------------------------------------
+
+function MediaErrorOverlay({ message }: { message: string }) {
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-meeting/90 p-6 text-center">
+      <VideoOff className="h-12 w-12 text-danger" aria-hidden="true" />
+      <div>
+        <p className="text-base font-semibold text-meeting-foreground">
+          Camera / Microphone access denied
+        </p>
+        <p className="mt-1 text-sm text-meeting-foreground/60">{message}</p>
+        <p className="mt-3 text-xs text-meeting-foreground/40">
+          Allow camera access in your browser settings and reload the page.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Side panel
 // ---------------------------------------------------------------------------
 
 function SidePanel({ title, onClose }: { title: string; onClose: () => void }) {
@@ -260,7 +360,7 @@ function SidePanel({ title, onClose }: { title: string; onClose: () => void }) {
     <aside
       role="region"
       aria-label={title}
-      className="animate-slide-in-right fixed inset-y-0 right-0 z-[50] flex w-full flex-col border-l border-white/10 bg-[hsl(240_5%_15%)] sm:w-panel"
+      className="animate-slide-in-right fixed inset-y-0 right-0 z-[50] flex w-full flex-col border-l border-white/10 bg-[hsl(240_5%_15%)] sm:w-[var(--spacing-panel,20rem)]"
     >
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <h2 className="text-sm font-semibold text-meeting-foreground">{title}</h2>
@@ -274,7 +374,7 @@ function SidePanel({ title, onClose }: { title: string; onClose: () => void }) {
       </div>
       <div className="flex flex-1 items-center justify-center">
         <p className="text-xs text-meeting-foreground/40">
-          {title} panel — wired up in Phase 2
+          {title} — wired up in Phase 5
         </p>
       </div>
     </aside>
@@ -282,23 +382,60 @@ function SidePanel({ title, onClose }: { title: string; onClose: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Meeting room (client)
+// MeetingRoom — main client component
 // ---------------------------------------------------------------------------
 
+// Stable client ID: generated once per page load (not per render)
+const CLIENT_ID = generateClientId()
+
 export function MeetingRoom({ meetingId }: { meetingId: string }) {
-  const [isMuted, setIsMuted] = useState(false)
-  const [isVideoOn, setIsVideoOn] = useState(true)
   const [openPanel, setOpenPanel] = useState<'participants' | 'chat' | null>(null)
 
-  // Placeholder participants — replaced with WebRTC/WebSocket state in Phase 3+
+  // ── Media devices ──────────────────────────────────────────────────────────
+  const {
+    localStream,
+    isMuted,
+    isVideoOn,
+    error: mediaError,
+    toggleMute,
+    toggleVideo,
+  } = useMediaDevices()
+
+  // ── WebSocket ───────────────────────────────────────────────────────────────
+  const { status: wsStatus, sendMessage, lastMessage } = useWebSocket(
+    meetingId,
+    CLIENT_ID,
+    'Demo User',
+  )
+
+  // Log incoming WS messages (Phase 5 will act on them for WebRTC signaling)
+  useEffect(() => {
+    if (!lastMessage) return
+    console.log('[Room] Received WS event:', lastMessage.type, lastMessage.payload)
+  }, [lastMessage])
+
+  // Send toggle-audio events to the room when mute state changes
+  useEffect(() => {
+    if (wsStatus !== 'open') return
+    sendMessage({ type: 'toggle-audio', payload: { is_muted: isMuted } })
+  }, [isMuted, wsStatus, sendMessage])
+
+  // Send toggle-video events to the room when video state changes
+  useEffect(() => {
+    if (wsStatus !== 'open') return
+    sendMessage({ type: 'toggle-video', payload: { is_video_on: isVideoOn } })
+  }, [isVideoOn, wsStatus, sendMessage])
+
+  // ── Local participant entry ────────────────────────────────────────────────
   const participants: Participant[] = [
     {
-      id: 'self',
+      id: CLIENT_ID,
       displayName: 'Demo User',
       isMuted,
       isVideoOn,
       isActiveSpeaker: true,
       isSelf: true,
+      stream: localStream,
     },
   ]
 
@@ -306,17 +443,24 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
     setOpenPanel((prev) => (prev === panel ? null : panel))
   }
 
+  function handleLeave() {
+    sendMessage({ type: 'leave-room', payload: {} })
+    window.location.href = '/dashboard'
+  }
+
   return (
-    <div className="flex h-screen flex-col bg-meeting text-meeting-foreground">
-      <MeetingInfoBar meetingId={meetingId} />
+    <div className="relative flex h-screen flex-col bg-meeting text-meeting-foreground">
+      {/* Camera/mic permission error overlay */}
+      {mediaError && <MediaErrorOverlay message={mediaError} />}
+
+      <MeetingInfoBar meetingId={meetingId} wsStatus={wsStatus} />
 
       {/* Main stage */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex flex-1 flex-col p-3 pb-[calc(var(--spacing-control)+1.5rem)] sm:p-4 sm:pb-[calc(var(--spacing-control)+3rem)]">
+        <div className="flex flex-1 flex-col p-3 pb-[calc(5rem+1.5rem)] sm:p-4 sm:pb-[calc(5rem+3rem)]">
           <VideoGrid participants={participants} />
         </div>
 
-        {/* Side panel */}
         {openPanel && (
           <SidePanel
             title={openPanel === 'participants' ? `Participants (${participants.length})` : 'Chat'}
@@ -329,12 +473,12 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
       <ControlBar
         isMuted={isMuted}
         isVideoOn={isVideoOn}
-        onToggleMute={() => setIsMuted((v) => !v)}
-        onToggleVideo={() => setIsVideoOn((v) => !v)}
+        onToggleMute={toggleMute}
+        onToggleVideo={toggleVideo}
         onToggleParticipants={() => togglePanel('participants')}
         onToggleChat={() => togglePanel('chat')}
-        onShareScreen={() => {/* screen share wired in Phase 6 */}}
-        onLeave={() => { window.location.href = '/dashboard' }}
+        onShareScreen={() => { /* Phase 6 */ }}
+        onLeave={handleLeave}
         participantCount={participants.length}
       />
     </div>
