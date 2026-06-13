@@ -1,3 +1,4 @@
+import os
 import random
 import string
 from datetime import datetime
@@ -19,7 +20,7 @@ from schemas import (
 router = APIRouter()
 
 DEFAULT_USER_ID = 1
-FRONTEND_BASE = "http://localhost:3000"
+FRONTEND_BASE = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 
 def _generate_meeting_code(db: Session) -> str:
