@@ -12,23 +12,38 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
     """
     WebSocket signaling endpoint for a meeting room.
 
-    Expected inbound message shape:
-      { "type": "<event>", "payload": { ... } }
+    Connection handshake (in order):
+      1. Snapshot existing participants BEFORE adding the new joiner.
+      2. Accept & register the new joiner.
+      3. Broadcast 'participant-joined' to every EXISTING client (they cache the name).
+      4. Send 'existing-participants' directly to the NEW joiner so they can
+         initiate WebRTC offers to everyone already in the room.
 
-    Supported client → server event types:
-      join-room, leave-room, offer, answer, ice-candidate,
-      toggle-audio, toggle-video, screen-share-started,
-      screen-share-stopped, remove-participant, mute-participant
+    This one-directional offer pattern (new joiner is always the OFFERER) eliminates
+    the offer-collision problem that causes one-way video on refresh.
+
+    Expected inbound message shape: { "type": "<event>", "payload": { ... } }
     """
     display_name = websocket.query_params.get("display_name", "Anonymous")
+
+    # ── Step 1: snapshot BEFORE the new joiner is registered ─────────────────
+    # get_participants() at this point returns only participants already in the room.
+    existing = [
+        p for p in manager.get_participants(meeting_code)
+        if p["client_id"] != client_id   # defensive: exclude any ghost with the same id
+    ]
+
+    # ── Step 2: register the new joiner ──────────────────────────────────────
     await manager.connect(websocket, meeting_code, client_id, display_name)
 
+    # ── Step 3: notify existing participants (they cache the name, no offer) ──
     await manager.broadcast_to_room(
         {
             "type": "participant-joined",
             "payload": {
                 "client_id": client_id,
                 "display_name": display_name,
+                # Full room snapshot so existing clients keep their name map current
                 "participants": manager.get_participants(meeting_code),
             },
         },
@@ -36,15 +51,32 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
         exclude_client_id=client_id,
     )
 
+    # ── Step 4: tell the new joiner who is already in the room ───────────────
+    # The new joiner will create one RTCPeerConnection + offer per existing peer.
+    if existing:
+        await manager.send_personal_message(
+            {
+                "type": "existing-participants",
+                "payload": {"participants": existing},
+            },
+            meeting_code,
+            client_id,
+        )
+
+    # ── Message loop ──────────────────────────────────────────────────────────
     try:
         while True:
-            raw = await websocket.receive_text()
+            try:
+                raw = await websocket.receive_text()
+            except (WebSocketDisconnect, RuntimeError):
+                break
+
             data = json.loads(raw)
             event_type = data.get("type")
             payload = data.get("payload", {})
 
             if event_type in ("offer", "answer", "ice-candidate"):
-                # Forward signaling messages directly to the target peer
+                # Route peer-to-peer signaling directly to the target client
                 target_id = payload.get("target")
                 if target_id:
                     await manager.send_personal_message(
@@ -105,6 +137,22 @@ async def websocket_endpoint(websocket: WebSocket, meeting_code: str, client_id:
 
             elif event_type == "leave-room":
                 break
+
+            elif event_type == "sync-room":
+                # Client requests a fresh snapshot (e.g. after media is ready or reconnect)
+                existing = [
+                    p for p in manager.get_participants(meeting_code)
+                    if p["client_id"] != client_id
+                ]
+                if existing:
+                    await manager.send_personal_message(
+                        {
+                            "type": "existing-participants",
+                            "payload": {"participants": existing},
+                        },
+                        meeting_code,
+                        client_id,
+                    )
 
     except WebSocketDisconnect:
         pass

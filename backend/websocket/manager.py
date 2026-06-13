@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
 
 class ConnectionManager:
@@ -53,17 +53,35 @@ class ConnectionManager:
             for cid, info in room.items()
         ]
 
-    async def send_personal_message(self, message: dict, meeting_code: str, client_id: str):
+    async def _safe_send(
+        self,
+        websocket: WebSocket,
+        meeting_code: str,
+        client_id: str,
+        message: dict,
+    ) -> bool:
+        """Send to one client; remove them from the room if the socket is gone."""
+        try:
+            await websocket.send_text(json.dumps(message))
+            return True
+        except (WebSocketDisconnect, RuntimeError):
+            self.disconnect(meeting_code, client_id)
+            return False
+
+    async def send_personal_message(self, message: dict, meeting_code: str, client_id: str) -> bool:
         room = self.rooms.get(meeting_code, {})
         participant = room.get(client_id)
-        if participant:
-            await participant["websocket"].send_text(json.dumps(message))
+        if not participant:
+            return False
+        return await self._safe_send(
+            participant["websocket"], meeting_code, client_id, message
+        )
 
     async def broadcast_to_room(self, message: dict, meeting_code: str, exclude_client_id: str | None = None):
         room = self.rooms.get(meeting_code, {})
-        for cid, info in room.items():
+        for cid, info in list(room.items()):
             if cid != exclude_client_id:
-                await info["websocket"].send_text(json.dumps(message))
+                await self._safe_send(info["websocket"], meeting_code, cid, message)
 
 
 manager = ConnectionManager()

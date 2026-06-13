@@ -14,6 +14,8 @@ export interface UseWebSocketReturn {
   sendMessage: (msg: WsMessage) => void
   /** The most recently received message (parsed JSON), or null. */
   lastMessage: WsMessage | null
+  /** Subscribe to every inbound message (avoids dropping rapid back-to-back events). */
+  subscribeToMessages: (listener: (msg: WsMessage) => void) => () => void
 }
 
 const WS_BASE = 'ws://localhost:8000'
@@ -34,11 +36,24 @@ export function useWebSocket(
   const [status, setStatus] = useState<WsStatus>('connecting')
   const [lastMessage, setLastMessage] = useState<WsMessage | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const listenersRef = useRef(new Set<(msg: WsMessage) => void>())
+  const pendingMessagesRef = useRef<WsMessage[]>([])
+
+  const subscribeToMessages = useCallback((listener: (msg: WsMessage) => void) => {
+    listenersRef.current.add(listener)
+    // Replay messages that arrived before the listener subscribed (refresh race).
+    const pending = pendingMessagesRef.current.splice(0)
+    pending.forEach((msg) => listener(msg))
+    return () => {
+      listenersRef.current.delete(listener)
+    }
+  }, [])
 
   useEffect(() => {
     if (!meetingCode || !clientId) return
 
     let disposed = false
+    pendingMessagesRef.current = []
     const url = `${WS_BASE}/ws/${meetingCode}/${clientId}?display_name=${encodeURIComponent(displayName)}`
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -67,6 +82,11 @@ export function useWebSocket(
         const data = JSON.parse(ev.data) as WsMessage
         console.log(`[WS] ← ${data.type}`, data.payload)
         setLastMessage(data)
+        if (listenersRef.current.size === 0) {
+          pendingMessagesRef.current.push(data)
+        } else {
+          listenersRef.current.forEach((listener) => listener(data))
+        }
       } catch {
         console.warn('[WS] Received non-JSON message:', ev.data)
       }
@@ -90,5 +110,5 @@ export function useWebSocket(
     }
   }, [])
 
-  return { status, sendMessage, lastMessage }
+  return { status, sendMessage, lastMessage, subscribeToMessages }
 }
